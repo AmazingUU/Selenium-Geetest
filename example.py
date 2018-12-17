@@ -15,6 +15,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+'''
+-------------------------------------------------------------------------
+横线之内的方法为升级之后的滑动验证方式
+升级之后的验证码为一张完整图片和一张带缺口的图片，直接将两张图片保存下来，
+对比图片，找到缺口即可
 
 def save_base64img(data_str, save_name):
     """
@@ -50,8 +55,7 @@ def get_base64_by_canvas(driver, class_name, contain_type):
         return bg_img[bg_img.find(',') + 1:]
 
 
-# def save_bg(driver, bg_path="bg.png", bg_class="geetest_canvas_bg geetest_absolute"):
-def save_bg(driver, bg_path="bg.png", bg_class="gt_cut_bg_slice"):
+def save_bg(driver, bg_path="bg.png", bg_class="geetest_canvas_bg geetest_absolute"):
     """
     保存包含缺口的背景图
     :param driver: webdriver 对象
@@ -64,8 +68,7 @@ def save_bg(driver, bg_path="bg.png", bg_class="gt_cut_bg_slice"):
     return bg_path
 
 
-# def save_full_bg(driver, full_bg_path="fbg.png", full_bg_class="geetest_canvas_fullbg geetest_fade geetest_absolute"):
-def save_full_bg(driver, full_bg_path="fbg.png", full_bg_class="gt_cut_fullbg_slice"):
+def save_full_bg(driver, full_bg_path="fbg.png", full_bg_class="geetest_canvas_fullbg geetest_fade geetest_absolute"):
     """
     保存完整的的背景图
     :param driver: webdriver 对象
@@ -76,13 +79,15 @@ def save_full_bg(driver, full_bg_path="fbg.png", full_bg_class="gt_cut_fullbg_sl
     bg_img_data = get_base64_by_canvas(driver, full_bg_class, False)
     save_base64img(bg_img_data, full_bg_path)
     return full_bg_path
+    
+------------------------------------------------------------------------------
+'''
 
 
 class Crack():
     def __init__(self, keyword):
-        self.url = 'http://gsxt.gdgs.gov.cn/'
-        # self.url = 'http://www.sgs.gov.cn/notice'
-        self.browser = webdriver.Chrome('chromedriver.exe')
+        self.url = 'http://www.sgs.gov.cn/notice'
+        self.browser = webdriver.Chrome('F:\chromedriver\chromedriver.exe')
         self.wait = WebDriverWait(self.browser, 100)
         self.keyword = keyword
         self.BORDER = 6
@@ -92,10 +97,8 @@ class Crack():
         打开浏览器,并输入查询内容
         """
         self.browser.get(self.url)
-        keyword = self.wait.until(EC.presence_of_element_located((By.ID, 'content')))
-        # keyword = self.wait.until(EC.presence_of_element_located((By.ID, 'keyword')))
-        bowton = self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'search_btn')))
-        # bowton = self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'buttonSearch')))
+        keyword = self.wait.until(EC.presence_of_element_located((By.ID, 'keyword')))
+        bowton = self.wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'buttonSearch')))
         keyword.send_keys(self.keyword)
         bowton.click()
 
@@ -164,39 +167,6 @@ class Crack():
 
         return new_im
 
-    def get_merge_image(self, filename, location_list):
-        """
-        根据位置对图片进行合并还原
-        :filename:图片
-        :location_list:图片位置
-        """
-        im = image.open(filename)
-        new_im = image.new('RGB', (260, 116))
-        im_list_upper = []
-        im_list_down = []
-
-        for location in location_list:
-            if location['y'] == -58:
-                im_list_upper.append(im.crop((abs(location['x']), 58, abs(location['x']) + 10, 166)))
-            if location['y'] == 0:
-                im_list_down.append(im.crop((abs(location['x']), 0, abs(location['x']) + 10, 58)))
-
-        new_im = image.new('RGB', (260, 116))
-
-        x_offset = 0
-        for im in im_list_upper:
-            new_im.paste(im, (x_offset, 0))
-            x_offset += im.size[0]
-
-        x_offset = 0
-        for im in im_list_down:
-            new_im.paste(im, (x_offset, 58))
-            x_offset += im.size[0]
-
-        new_im.save(filename)
-
-        return new_im
-
     def is_pixel_equal(self, img1, img2, x, y):
         """
         判断两个像素是否相同
@@ -209,7 +179,8 @@ class Crack():
         # 取两个图片的像素点
         pix1 = img1.load()[x, y]
         pix2 = img2.load()[x, y]
-        threshold = 60
+        threshold = 100  # 原作者该阈值设为60，实际测试发现60太小，故改为100
+        # threshold = 60
         if (abs(pix1[0] - pix2[0] < threshold) and abs(pix1[1] - pix2[1] < threshold) and abs(
                 pix1[2] - pix2[2] < threshold)):
             return True
@@ -223,7 +194,7 @@ class Crack():
         :param img2: 带缺口图片
         :return:
         """
-        left = 43
+        left = 43 # 滑块宽度
         for i in range(left, img1.size[0]):
             for j in range(img1.size[1]):
                 if not self.is_pixel_equal(img1, img2, i, j):
@@ -310,14 +281,14 @@ class Crack():
         # 方法1
         bg_img = self.get_merge_image(bg_filename, bg_location_list)
         fullbg_img = self.get_merge_image(fullbg_filename, fullbg_location_list)
-        # 方法2
+        # 方法2，是升级之后的滑动验证，升级之后，验证码不再是图片和并形式，而是直接的图片
         # bg_img = save_bg(self.browser)
         # full_bg_img = save_full_bg(self.browser)
 
         # 获取缺口位置
         # 方法1
         gap = self.get_gap(fullbg_img, bg_img)
-        # 方法2
+        # 方法2，直接将两张图片保存下来，对比图片，找到缺口即可
         # gap = self.get_gap(image.open(fullbg_img), image.open(bg_img))
         print('缺口位置', gap)
 
